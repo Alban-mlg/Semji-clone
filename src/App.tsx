@@ -146,8 +146,8 @@ function App() {
         headers: {
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.5',
-          'User-Agent': 'SEO-Analysis-Tool/1.0',
         },
+        withCredentials: true,
       }).catch(error => {
         console.error('Axios request failed:', error.message);
         if (axios.isAxiosError(error)) {
