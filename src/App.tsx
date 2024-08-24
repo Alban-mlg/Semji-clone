@@ -40,9 +40,11 @@ function App() {
 
   const fetchAndParseContent = async () => {
     try {
+      console.log('Starting fetchAndParseContent...');
       setError(null);
       setParsedContent(null);
       const proxyUrl = process.env.REACT_APP_PROXY_URL || 'https://tourmaline-begonia-fe69b6.netlify.app/proxy';
+      console.log('Using proxy URL:', proxyUrl);
       console.log('Fetching content from:', url);
 
       if (!url.trim()) {
@@ -52,7 +54,9 @@ function App() {
       let parsedUrl;
       try {
         parsedUrl = new URL(url);
+        console.log('Parsed URL:', parsedUrl.href);
       } catch (urlError) {
+        console.error('URL parsing error:', urlError);
         throw new Error('Invalid URL format. Please enter a valid URL including the protocol (http:// or https://)');
       }
 
@@ -96,8 +100,9 @@ function App() {
         content: $('body').text().trim(),
       };
 
+      console.log('Parsed data:', JSON.stringify(parsedData, null, 2));
       setParsedContent(parsedData);
-      console.log('Content parsed successfully:', parsedData);
+      console.log('Content parsed successfully and state updated');
       generateSeoSuggestions(parsedData);
     } catch (err) {
       console.error('Error details:', err);
@@ -176,14 +181,18 @@ function App() {
               onChange={(e) => setUrl(e.target.value)}
             />
           </Box>
-          <Button onClick={fetchAndParseContent} colorScheme="blue">
+          <Button
+            onClick={fetchAndParseContent}
+            colorScheme="blue"
+            isLoading={!parsedContent && !error}
+          >
             Analyze
           </Button>
           {error && (
             <Text color="red.500">{error}</Text>
           )}
-          {parsedContent && (
-            <Flex width="100%" gap={6}>
+          {parsedContent ? (
+            <Flex width="100%" gap={6} direction={["column", "column", "row"]}>
               <Box flex={1}>
                 <Heading as="h2" size="md" mb={4}>Page Content</Heading>
                 <ReactQuill
@@ -203,13 +212,15 @@ function App() {
               <Box flex={1}>
                 <Heading as="h2" size="md" mb={4}>SEO Analysis</Heading>
                 <VStack align="start" spacing={4}>
-                  <Text><strong>Title:</strong> {parsedContent.title}</Text>
-                  <Text><strong>Meta Description:</strong> {parsedContent.metaDescription}</Text>
-                  <Text><strong>H1 Tags:</strong> {parsedContent.h1Tags.join(', ')}</Text>
+                  <Text><strong>Title:</strong> {parsedContent.title || 'N/A'}</Text>
+                  <Text><strong>Meta Description:</strong> {parsedContent.metaDescription || 'N/A'}</Text>
+                  <Text><strong>H1 Tags:</strong> {parsedContent.h1Tags.length > 0 ? parsedContent.h1Tags.join(', ') : 'None'}</Text>
                   <Text><strong>Links:</strong> {parsedContent.links.length}</Text>
                 </VStack>
               </Box>
             </Flex>
+          ) : (
+            <Text>Enter a URL and click Analyze to see the SEO analysis.</Text>
           )}
           {seoSuggestions.length > 0 && (
             <Box width="100%" mt={6}>
