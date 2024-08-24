@@ -20,6 +20,8 @@ import {
   AccordionPanel,
   AccordionIcon,
   Flex,
+  UnorderedList,
+  ListItem,
 } from '@chakra-ui/react';
 
 declare module 'react-quill';
@@ -144,27 +146,68 @@ function App() {
   };
 
   const generateSeoSuggestions = (parsedData: ParsedContent) => {
-    const suggestions: string[] = [];
+    const suggestions: { title: string; description: string }[] = [];
 
+    // Title suggestions
     if (parsedData.title.length < 30 || parsedData.title.length > 60) {
-      suggestions.push('Optimize title length (30-60 characters)');
+      suggestions.push({
+        title: 'Optimize title length',
+        description: 'Aim for a title length between 30-60 characters. Current length: ' + parsedData.title.length
+      });
     }
 
+    // Meta description suggestions
     if (parsedData.metaDescription.length < 120 || parsedData.metaDescription.length > 160) {
-      suggestions.push('Optimize meta description length (120-160 characters)');
+      suggestions.push({
+        title: 'Optimize meta description length',
+        description: 'Aim for a meta description length between 120-160 characters. Current length: ' + parsedData.metaDescription.length
+      });
     }
 
+    // H1 tag suggestions
     if (parsedData.h1Tags.length === 0) {
-      suggestions.push('Add an H1 tag');
+      suggestions.push({
+        title: 'Add an H1 tag',
+        description: 'Every page should have a unique H1 tag that accurately describes the page content.'
+      });
     } else if (parsedData.h1Tags.length > 1) {
-      suggestions.push('Use only one H1 tag per page');
+      suggestions.push({
+        title: 'Use only one H1 tag per page',
+        description: 'Multiple H1 tags can confuse search engines. Use only one H1 tag that describes your main topic.'
+      });
     }
 
+    // Link suggestions
     if (parsedData.links.length < 2) {
-      suggestions.push('Add more internal or external links');
+      suggestions.push({
+        title: 'Add more internal or external links',
+        description: 'Including relevant links helps search engines understand your content and improves user experience.'
+      });
     }
 
-    // Add more SEO checks and suggestions here
+    // Keyword in title
+    if (!parsedData.title.toLowerCase().includes(parsedData.content.toLowerCase().substring(0, 20))) {
+      suggestions.push({
+        title: 'Include main keyword in title',
+        description: 'Ensure your main keyword or topic is present in the page title for better SEO.'
+      });
+    }
+
+    // Content length suggestion
+    if (parsedData.content.length < 300) {
+      suggestions.push({
+        title: 'Increase content length',
+        description: 'Pages with more content tend to rank better. Aim for at least 300 words of unique, valuable content.'
+      });
+    }
+
+    // Image alt text check (assuming we add an images field to ParsedContent in the future)
+    // if (parsedData.images && parsedData.images.some(img => !img.alt)) {
+    //   suggestions.push({
+    //     title: 'Add alt text to all images',
+    //     description: 'Alt text helps search engines understand image content and improves accessibility.'
+    //   });
+    // }
 
     setSeoSuggestions(suggestions);
   };
@@ -192,26 +235,29 @@ function App() {
             <Text color="red.500">{error}</Text>
           )}
           {parsedContent ? (
-            <Flex width="100%" gap={6} direction={["column", "column", "row"]}>
-              <Box flex={1}>
+            <Flex width="100%" gap={6} direction={["column", "row"]} minHeight="60vh">
+              <Box flex={1} display="flex" flexDirection="column">
                 <Heading as="h2" size="md" mb={4}>Page Content</Heading>
-                <ReactQuill
-                  value={parsedContent.content}
-                  onChange={(content) => setParsedContent({...parsedContent, content})}
-                  modules={{
-                    toolbar: [
-                      [{ 'header': [1, 2, 3, false] }],
-                      ['bold', 'italic', 'underline', 'strike'],
-                      [{'list': 'ordered'}, {'list': 'bullet'}],
-                      ['link', 'image'],
-                      ['clean']
-                    ],
-                  }}
-                />
+                <Box flexGrow={1} minHeight="50vh">
+                  <ReactQuill
+                    value={parsedContent.content}
+                    onChange={(content) => setParsedContent({...parsedContent, content})}
+                    modules={{
+                      toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{'list': 'ordered'}, {'list': 'bullet'}],
+                        ['link', 'image'],
+                        ['clean']
+                      ],
+                    }}
+                    style={{ height: '100%' }}
+                  />
+                </Box>
               </Box>
               <Box flex={1}>
                 <Heading as="h2" size="md" mb={4}>SEO Analysis</Heading>
-                <VStack align="start" spacing={4}>
+                <VStack align="start" spacing={4} overflowY="auto" maxHeight="50vh">
                   <Text><strong>Title:</strong> {parsedContent.title || 'N/A'}</Text>
                   <Text><strong>Meta Description:</strong> {parsedContent.metaDescription || 'N/A'}</Text>
                   <Text><strong>H1 Tags:</strong> {parsedContent.h1Tags.length > 0 ? parsedContent.h1Tags.join(', ') : 'None'}</Text>
@@ -231,13 +277,18 @@ function App() {
                     <h2>
                       <AccordionButton>
                         <Box flex="1" textAlign="left">
-                          {suggestion}
+                          <Text fontWeight="bold">{suggestion.title}</Text>
                         </Box>
                         <AccordionIcon />
                       </AccordionButton>
                     </h2>
                     <AccordionPanel pb={4}>
-                      Detailed explanation and tips for implementing this suggestion.
+                      <Text mb={2}>{suggestion.description}</Text>
+                      <UnorderedList>
+                        {suggestion.tips.map((tip, tipIndex) => (
+                          <ListItem key={tipIndex}>{tip}</ListItem>
+                        ))}
+                      </UnorderedList>
                     </AccordionPanel>
                   </AccordionItem>
                 ))}
