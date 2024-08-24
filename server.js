@@ -22,7 +22,7 @@ const logger = winston.createLogger({
 // CORS configuration
 const corsOptions = {
   origin: (origin, callback) => {
-    const allowedOrigins = ['https://gilded-peony-d724d9.netlify.app'];
+    const allowedOrigins = ['https://gilded-peony-d724d9.netlify.app', 'https://shimmering-griffin-7ec005.netlify.app', 'http://localhost:3000'];
     if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
       callback(null, true);
     } else {
@@ -59,15 +59,8 @@ app.use((req, res, next) => {
 
 // Function to set CORS headers
 const setCorsHeaders = (req, res) => {
-  const origin = req.headers.origin;
-  const netlifyDomain = 'https://gilded-peony-d724d9.netlify.app';
-
-  // Set Access-Control-Allow-Origin header
-  if (origin === netlifyDomain) {
-    res.header('Access-Control-Allow-Origin', netlifyDomain);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
+  // Set Access-Control-Allow-Origin header to '*' for simplicity
+  res.header('Access-Control-Allow-Origin', '*');
 
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
@@ -77,7 +70,6 @@ const setCorsHeaders = (req, res) => {
 
   const corsHeaders = res.getHeaders();
   logger.info('CORS headers set:', {
-    requestOrigin: origin || 'Not provided',
     allowOrigin: corsHeaders['access-control-allow-origin'] || 'Not set',
     methods: corsHeaders['access-control-allow-methods'],
     headers: corsHeaders['access-control-allow-headers'],
@@ -91,8 +83,6 @@ const setCorsHeaders = (req, res) => {
   // Check if Access-Control-Allow-Origin is set correctly
   if (!res.getHeader('Access-Control-Allow-Origin')) {
     logger.warn('Access-Control-Allow-Origin header is missing');
-  } else if (origin === netlifyDomain && res.getHeader('Access-Control-Allow-Origin') !== netlifyDomain) {
-    logger.warn('Access-Control-Allow-Origin header is not set correctly for Netlify domain');
   }
 };
 
@@ -117,6 +107,8 @@ const handleErrorWithCors = (req, res, error) => {
     res.status(statusCode).json({ error: errorMessage });
   } else {
     logger.warn('Headers already sent, unable to set CORS headers or send error response');
+    // If headers are already sent, we can't modify them, so we'll end the response
+    res.end();
   }
 };
 
@@ -147,6 +139,9 @@ app.use((req, res, next) => {
 });
 
 app.get('/proxy', async (req, res, next) => {
+  // Set CORS headers immediately
+  setCorsHeaders(req, res);
+
   logger.info('Incoming request details', {
     origin: req.headers.origin,
     headers: req.headers,
@@ -180,7 +175,6 @@ app.get('/proxy', async (req, res, next) => {
     const https = require('https');
     const response = await axios.get(parsedUrl.href, {
       headers: {
-        'User-Agent': 'SEO-Analysis-Tool/1.0 (https://github.com/yourusername/seo-tool)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Cache-Control': 'no-cache',
@@ -190,6 +184,7 @@ app.get('/proxy', async (req, res, next) => {
       maxRedirects: 5,
       validateStatus: null,
       responseType: 'arraybuffer',
+      withCredentials: true,
       httpsAgent: new https.Agent({
         rejectUnauthorized: false,
         secureOptions: require('constants').SSL_OP_NO_TLSv1 | require('constants').SSL_OP_NO_TLSv1_1
@@ -272,46 +267,39 @@ app.get('/proxy', async (req, res, next) => {
       }
     }
 
-    // Log CORS-related information
-    logger.error('CORS-related information:', {
-      origin: req.headers.origin,
-      'access-control-request-method': req.headers['access-control-request-method'],
-      'access-control-request-headers': req.headers['access-control-request-headers']
-    });
-
     responseData = { error: errorMessage };
-  } finally {
-    // Ensure CORS headers are set before sending the response
-    setCorsHeaders(req, res);
+  }
 
-    // Set Content-Type header
-    res.setHeader('Content-Type', contentType);
+  // Set Content-Type header
+  res.setHeader('Content-Type', contentType);
 
-    // Double-check that CORS headers are set
-    const corsHeaders = res.getHeaders();
-    logger.info('CORS headers before sending response:', corsHeaders);
+  // Ensure CORS headers are set before sending the response
+  setCorsHeaders(req, res);
 
-    // Send the response
-    res.status(statusCode).send(responseData);
+  // Log CORS headers before sending the response
+  const corsHeaders = res.getHeaders();
+  logger.info('CORS headers before sending response:', corsHeaders);
 
-    // Log the final response headers and status after sending
-    logger.info('Response sent', {
-      headers: res.getHeaders(),
-      status: res.statusCode
-    });
+  // Send the response
+  res.status(statusCode).send(responseData);
 
-    // Log if Access-Control-Allow-Origin is missing
-    if (!res.getHeader('Access-Control-Allow-Origin')) {
-      logger.warn('Access-Control-Allow-Origin header is missing in the response');
-    }
+  // Log the final response headers and status after sending
+  logger.info('Response sent', {
+    headers: res.getHeaders(),
+    status: res.statusCode
+  });
 
-    // Log CORS-related response headers
-    logger.info('CORS-related response headers:', {
-      'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin'),
-      'Access-Control-Allow-Methods': res.getHeader('Access-Control-Allow-Methods'),
-      'Access-Control-Allow-Headers': res.getHeader('Access-Control-Allow-Headers'),
-      'Access-Control-Allow-Credentials': res.getHeader('Access-Control-Allow-Credentials')
-    });
+  // Log CORS-related response headers
+  logger.info('CORS-related response headers:', {
+    'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin'),
+    'Access-Control-Allow-Methods': res.getHeader('Access-Control-Allow-Methods'),
+    'Access-Control-Allow-Headers': res.getHeader('Access-Control-Allow-Headers'),
+    'Access-Control-Allow-Credentials': res.getHeader('Access-Control-Allow-Credentials')
+  });
+
+  // Log if Access-Control-Allow-Origin is missing
+  if (!res.getHeader('Access-Control-Allow-Origin')) {
+    logger.warn('Access-Control-Allow-Origin header is missing in the response');
   }
 });
 
