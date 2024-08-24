@@ -139,20 +139,17 @@ app.use((req, res, next) => {
 });
 
 app.get('/proxy', async (req, res, next) => {
-  // Set CORS headers immediately
-  setCorsHeaders(req, res);
-
-  logger.info('Incoming request details', {
-    origin: req.headers.origin,
-    headers: req.headers,
-    query: req.query
-  });
-
   let statusCode = 200;
   let responseData = null;
   let contentType = 'application/json';
 
   try {
+    logger.info('Incoming request details', {
+      origin: req.headers.origin,
+      headers: req.headers,
+      query: req.query
+    });
+
     const { url } = req.query;
 
     if (!url) {
@@ -281,37 +278,41 @@ app.get('/proxy', async (req, res, next) => {
     responseData = { error: errorMessage };
   }
 
-  // Set Content-Type header
-  res.setHeader('Content-Type', contentType);
+  if (!res.headersSent) {
+    // Set Content-Type header
+    res.setHeader('Content-Type', contentType);
 
-  // Ensure CORS headers are set before sending the response
-  setCorsHeaders(req, res);
+    // Ensure CORS headers are set before sending the response
+    setCorsHeaders(req, res);
 
-  // Log CORS headers before sending the response
-  const corsHeaders = res.getHeaders();
-  logger.info('CORS headers before sending response:', corsHeaders);
+    // Log CORS headers before sending the response
+    const corsHeaders = res.getHeaders();
+    logger.info('CORS headers before sending response:', corsHeaders);
 
-  // Send the response
-  res.status(statusCode).send(responseData);
+    // Send the response
+    res.status(statusCode).send(responseData);
 
-  // Log the final response headers and status after sending
-  logger.info('Response sent', {
-    headers: res.getHeaders(),
-    status: res.statusCode,
-    contentLength: responseData.length || (responseData.error && responseData.error.length) || 0
-  });
+    // Log the final response headers and status after sending
+    logger.info('Response sent', {
+      headers: res.getHeaders(),
+      status: res.statusCode,
+      contentLength: responseData.length || (responseData.error && responseData.error.length) || 0
+    });
 
-  // Log CORS-related response headers
-  logger.info('CORS-related response headers:', {
-    'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin'),
-    'Access-Control-Allow-Methods': res.getHeader('Access-Control-Allow-Methods'),
-    'Access-Control-Allow-Headers': res.getHeader('Access-Control-Allow-Headers'),
-    'Access-Control-Allow-Credentials': res.getHeader('Access-Control-Allow-Credentials')
-  });
+    // Log CORS-related response headers
+    logger.info('CORS-related response headers:', {
+      'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin'),
+      'Access-Control-Allow-Methods': res.getHeader('Access-Control-Allow-Methods'),
+      'Access-Control-Allow-Headers': res.getHeader('Access-Control-Allow-Headers'),
+      'Access-Control-Allow-Credentials': res.getHeader('Access-Control-Allow-Credentials')
+    });
 
-  // Log if Access-Control-Allow-Origin is missing
-  if (!res.getHeader('Access-Control-Allow-Origin')) {
-    logger.warn('Access-Control-Allow-Origin header is missing in the response');
+    // Log if Access-Control-Allow-Origin is missing
+    if (!res.getHeader('Access-Control-Allow-Origin')) {
+      logger.warn('Access-Control-Allow-Origin header is missing in the response');
+    }
+  } else {
+    logger.warn('Headers already sent, unable to set headers or send response');
   }
 });
 
