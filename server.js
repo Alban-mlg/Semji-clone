@@ -27,7 +27,8 @@ const corsOptions = {
       'https://shimmering-griffin-7ec005.netlify.app',
       'http://localhost:3000',
       'https://friendly-seahorse-2706ff.netlify.app',
-      'https://peppy-buttercream-89f707.netlify.app'
+      'https://peppy-buttercream-89f707.netlify.app',
+      'https://voluble-croquembouche-6b57eb.netlify.app'
     ];
     if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
       callback(null, true);
