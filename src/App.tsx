@@ -209,7 +209,10 @@ function App() {
     //   });
     // }
 
-    setSeoSuggestions(suggestions);
+    // Map suggestions to an array of strings
+    const formattedSuggestions = suggestions.map(suggestion => `${suggestion.title}: ${suggestion.description}`);
+
+    setSeoSuggestions(formattedSuggestions);
   };
 
   return (
@@ -272,26 +275,24 @@ function App() {
             <Box width="100%" mt={6}>
               <Heading as="h2" size="md" mb={4}>SEO Suggestions</Heading>
               <Accordion allowMultiple>
-                {seoSuggestions.map((suggestion, index) => (
-                  <AccordionItem key={index}>
-                    <h2>
-                      <AccordionButton>
-                        <Box flex="1" textAlign="left">
-                          <Text fontWeight="bold">{suggestion.title}</Text>
-                        </Box>
-                        <AccordionIcon />
-                      </AccordionButton>
-                    </h2>
-                    <AccordionPanel pb={4}>
-                      <Text mb={2}>{suggestion.description}</Text>
-                      <UnorderedList>
-                        {suggestion.tips.map((tip, tipIndex) => (
-                          <ListItem key={tipIndex}>{tip}</ListItem>
-                        ))}
-                      </UnorderedList>
-                    </AccordionPanel>
-                  </AccordionItem>
-                ))}
+                {seoSuggestions.map((suggestion, index) => {
+                  const [title, description] = suggestion.split(': ');
+                  return (
+                    <AccordionItem key={index}>
+                      <h2>
+                        <AccordionButton>
+                          <Box flex="1" textAlign="left">
+                            <Text fontWeight="bold">{title}</Text>
+                          </Box>
+                          <AccordionIcon />
+                        </AccordionButton>
+                      </h2>
+                      <AccordionPanel pb={4}>
+                        <Text>{description}</Text>
+                      </AccordionPanel>
+                    </AccordionItem>
+                  );
+                })}
               </Accordion>
             </Box>
           )}
