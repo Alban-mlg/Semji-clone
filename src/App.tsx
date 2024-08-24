@@ -142,13 +142,27 @@ function App() {
 
       console.log('Sending request to proxy server...');
       const response = await axios.get(`${proxyUrl}?url=${encodeURIComponent(parsedUrl.href)}`, {
-        timeout: 15000,
-        validateStatus: () => true,
-        withCredentials: false,
+        timeout: 30000,
         headers: {
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.5',
+          'User-Agent': 'SEO-Analysis-Tool/1.0',
         },
+      }).catch(error => {
+        console.error('Axios request failed:', error.message);
+        if (axios.isAxiosError(error)) {
+          if (error.response) {
+            console.error('Response status:', error.response.status);
+            console.error('Response data:', error.response.data);
+          } else if (error.request) {
+            console.error('No response received:', error.request);
+          } else {
+            console.error('Error setting up the request:', error.message);
+          }
+        } else {
+          console.error('Non-Axios error:', error);
+        }
+        throw error;
       });
 
       console.log('Response received:', response.status, response.statusText);

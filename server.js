@@ -177,19 +177,35 @@ app.get('/proxy', async (req, res, next) => {
 
     logger.info(`Received request for URL: ${parsedUrl.href}`);
 
+    const https = require('https');
     const response = await axios.get(parsedUrl.href, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'User-Agent': 'SEO-Analysis-Tool/1.0 (https://github.com/yourusername/seo-tool)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
-        'Referer': 'https://www.google.com/'
       },
-      timeout: 15000,
+      timeout: 30000,
       maxRedirects: 5,
       validateStatus: null,
-      responseType: 'arraybuffer'
+      responseType: 'arraybuffer',
+      httpsAgent: new https.Agent({
+        rejectUnauthorized: false,
+        secureOptions: require('constants').SSL_OP_NO_TLSv1 | require('constants').SSL_OP_NO_TLSv1_1
+      })
+    }).catch(error => {
+      logger.error('Axios request failed:', error.message);
+      if (error.response) {
+        logger.error('Response data:', error.response.data);
+        logger.error('Response status:', error.response.status);
+        logger.error('Response headers:', error.response.headers);
+      } else if (error.request) {
+        logger.error('No response received:', error.request);
+      } else {
+        logger.error('Error setting up the request:', error.message);
+      }
+      throw error;
     });
 
     logger.info('Proxy request successful', {
