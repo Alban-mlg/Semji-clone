@@ -179,6 +179,7 @@ app.get('/proxy', async (req, res, next) => {
         'Accept-Language': 'en-US,en;q=0.9',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       },
       timeout: 30000,
       maxRedirects: 5,
@@ -190,29 +191,32 @@ app.get('/proxy', async (req, res, next) => {
         secureOptions: require('constants').SSL_OP_NO_TLSv1 | require('constants').SSL_OP_NO_TLSv1_1
       })
     }).catch(error => {
-      logger.error('Axios request failed:', error.message);
+      logger.error('Axios request failed:', {
+        message: error.message,
+        code: error.code,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+          timeout: error.config?.timeout
+        }
+      });
+
       if (axios.isAxiosError(error)) {
         if (error.response) {
           logger.error('Target server response:', {
             status: error.response.status,
             statusText: error.response.statusText,
             headers: error.response.headers,
-            data: error.response.data.toString('utf8').substring(0, 200) // Log first 200 chars of response data
+            data: error.response.data.toString('utf8').substring(0, 500) // Log first 500 chars of response data
           });
         } else if (error.request) {
           logger.error('No response received from target server:', {
-            method: error.config.method,
-            url: error.config.url,
-            timeout: error.config.timeout,
+            method: error.config?.method,
+            url: error.config?.url,
+            timeout: error.config?.timeout,
             errorCode: error.code
           });
-          if (error.code === 'ECONNABORTED') {
-            logger.error('Request timed out');
-          } else if (error.code === 'ECONNREFUSED') {
-            logger.error('Connection refused by the server');
-          } else if (error.code === 'ENOTFOUND') {
-            logger.error('DNS lookup failed');
-          }
         } else {
           logger.error('Error setting up the request:', error.message);
         }
@@ -225,7 +229,8 @@ app.get('/proxy', async (req, res, next) => {
     logger.info('Proxy request successful', {
       status: response.status,
       url: url,
-      headers: response.headers
+      headers: response.headers,
+      contentLength: response.data.length
     });
 
     statusCode = response.status;
@@ -253,16 +258,22 @@ app.get('/proxy', async (req, res, next) => {
       if (error.response) {
         statusCode = error.response.status;
         errorMessage = `Proxy target responded with status ${statusCode}: ${error.response.statusText}`;
-        logger.error('Target server response:', {
+        logger.error('Target server error response:', {
           status: error.response.status,
+          statusText: error.response.statusText,
           headers: error.response.headers,
-          data: error.response.data
+          data: error.response.data.toString('utf8').substring(0, 500) // Log first 500 chars of error response data
         });
       } else if (error.request) {
         statusCode = 504;
         errorMessage = 'Gateway Timeout: No response received from the target server';
         logger.error('No response from target server:', {
-          request: error.request
+          request: {
+            method: error.config?.method,
+            url: error.config?.url,
+            headers: error.config?.headers,
+            timeout: error.config?.timeout
+          }
         });
       }
     }
@@ -286,7 +297,8 @@ app.get('/proxy', async (req, res, next) => {
   // Log the final response headers and status after sending
   logger.info('Response sent', {
     headers: res.getHeaders(),
-    status: res.statusCode
+    status: res.statusCode,
+    contentLength: responseData.length || (responseData.error && responseData.error.length) || 0
   });
 
   // Log CORS-related response headers
