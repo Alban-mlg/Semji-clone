@@ -196,14 +196,33 @@ app.get('/proxy', async (req, res, next) => {
       })
     }).catch(error => {
       logger.error('Axios request failed:', error.message);
-      if (error.response) {
-        logger.error('Response data:', error.response.data);
-        logger.error('Response status:', error.response.status);
-        logger.error('Response headers:', error.response.headers);
-      } else if (error.request) {
-        logger.error('No response received:', error.request);
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          logger.error('Target server response:', {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            headers: error.response.headers,
+            data: error.response.data.toString('utf8').substring(0, 200) // Log first 200 chars of response data
+          });
+        } else if (error.request) {
+          logger.error('No response received from target server:', {
+            method: error.config.method,
+            url: error.config.url,
+            timeout: error.config.timeout,
+            errorCode: error.code
+          });
+          if (error.code === 'ECONNABORTED') {
+            logger.error('Request timed out');
+          } else if (error.code === 'ECONNREFUSED') {
+            logger.error('Connection refused by the server');
+          } else if (error.code === 'ENOTFOUND') {
+            logger.error('DNS lookup failed');
+          }
+        } else {
+          logger.error('Error setting up the request:', error.message);
+        }
       } else {
-        logger.error('Error setting up the request:', error.message);
+        logger.error('Non-Axios error:', error);
       }
       throw error;
     });
