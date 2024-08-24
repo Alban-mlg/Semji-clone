@@ -64,8 +64,12 @@ app.use((req, res, next) => {
 
 // Function to set CORS headers
 const setCorsHeaders = (req, res) => {
-  // Set Access-Control-Allow-Origin header to '*' for simplicity
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  corsOptions.origin(origin, (err, allowed) => {
+    if (allowed) {
+      res.header('Access-Control-Allow-Origin', origin);
+    }
+  });
 
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
@@ -290,9 +294,9 @@ app.get('/proxy', async (req, res, next) => {
     // Ensure CORS headers are set before sending the response
     setCorsHeaders(req, res);
 
-    // Log CORS headers before sending the response
-    const corsHeaders = res.getHeaders();
-    logger.info('CORS headers before sending response:', corsHeaders);
+    // Log all headers before sending the response
+    const allHeaders = res.getHeaders();
+    logger.info('All headers before sending response:', allHeaders);
 
     // Send the response
     res.status(statusCode).send(responseData);
@@ -305,16 +309,21 @@ app.get('/proxy', async (req, res, next) => {
     });
 
     // Log CORS-related response headers
-    logger.info('CORS-related response headers:', {
+    const corsHeaders = {
       'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin'),
       'Access-Control-Allow-Methods': res.getHeader('Access-Control-Allow-Methods'),
       'Access-Control-Allow-Headers': res.getHeader('Access-Control-Allow-Headers'),
       'Access-Control-Allow-Credentials': res.getHeader('Access-Control-Allow-Credentials')
-    });
+    };
+    logger.info('CORS-related response headers:', corsHeaders);
 
-    // Log if Access-Control-Allow-Origin is missing
-    if (!res.getHeader('Access-Control-Allow-Origin')) {
-      logger.warn('Access-Control-Allow-Origin header is missing in the response');
+    // Check and log if any CORS headers are missing
+    const missingHeaders = Object.entries(corsHeaders)
+      .filter(([key, value]) => !value)
+      .map(([key]) => key);
+
+    if (missingHeaders.length > 0) {
+      logger.warn('Missing CORS headers in the response:', missingHeaders);
     }
   } else {
     logger.warn('Headers already sent, unable to set headers or send response');
