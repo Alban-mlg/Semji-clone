@@ -22,7 +22,12 @@ const logger = winston.createLogger({
 // CORS configuration
 const corsOptions = {
   origin: (origin, callback) => {
-    const allowedOrigins = ['https://gilded-peony-d724d9.netlify.app', 'https://shimmering-griffin-7ec005.netlify.app', 'http://localhost:3000'];
+    const allowedOrigins = [
+      'https://gilded-peony-d724d9.netlify.app',
+      'https://shimmering-griffin-7ec005.netlify.app',
+      'http://localhost:3000',
+      'https://friendly-seahorse-2706ff.netlify.app'
+    ];
     if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
       callback(null, true);
     } else {
