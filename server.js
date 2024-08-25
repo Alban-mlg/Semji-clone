@@ -138,7 +138,13 @@ const setCorsHeaders = (req, res) => {
     if (matchedOrigin) {
       res.header('Access-Control-Allow-Origin', origin);
       logger.info(`Origin ${origin} is allowed (matched ${matchedOrigin}). Setting Access-Control-Allow-Origin: ${origin}`);
+
+      // Specific logging for the new Netlify URL
+      if (origin === 'https://splendorous-sunflower-ee4031.netlify.app') {
+        logger.info('New Netlify URL detected and allowed');
+      }
     } else {
+      // If no match, use the first allowed origin as a fallback
       res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
       logger.warn(`Non-allowed origin: ${origin}. Setting Access-Control-Allow-Origin to default: ${allowedOrigins[0]}`);
     }
@@ -146,6 +152,11 @@ const setCorsHeaders = (req, res) => {
     logger.warn('No origin header present in the request');
     res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
   }
+
+  // Ensure other CORS headers are set
+  res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
+  res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
+  res.header('Access-Control-Allow-Credentials', 'true');
 
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
@@ -197,7 +208,8 @@ const setCorsHeaders = (req, res) => {
     allowedOrigins: allowedOrigins,
     matchResult: allowedOrigins.includes('*') ? 'Wildcard match' :
                  (origin ? (allowedOrigins.find(allowedOrigin => origin.startsWith(allowedOrigin)) ? 'Matched origin' : 'No match') : 'No origin in request'),
-    finalSetOrigin: setOrigin
+    finalSetOrigin: setOrigin,
+    isNewNetlifyUrl: origin === 'https://splendorous-sunflower-ee4031.netlify.app'
   });
 };
 
@@ -273,6 +285,11 @@ app.get('/proxy', async (req, res, next) => {
       requestOrigin: req.headers.origin,
       isOriginAllowed: allowedOrigins.includes(req.headers.origin) || allowedOrigins.includes('*')
     });
+
+    // Specific logging for the new Netlify URL
+    if (req.headers.origin === 'https://splendorous-sunflower-ee4031.netlify.app') {
+      logger.info('Request from new Netlify deployment URL detected');
+    }
 
     const { url } = req.query;
 
@@ -458,6 +475,18 @@ app.get('/proxy', async (req, res, next) => {
                             (allowedOrigins.includes('*') ? 'Wildcard match' : 'No match'),
       corsHeadersSet: Object.keys(corsHeaders).filter(key => corsHeaders[key] !== undefined)
     });
+
+    // Specific logging for the new Netlify URL
+    if (req.headers.origin === 'https://splendorous-sunflower-ee4031.netlify.app') {
+      logger.info('Response sent to new Netlify deployment URL', {
+        corsHeaders,
+        allowedOrigins,
+        responseAllowOrigin: res.getHeader('Access-Control-Allow-Origin'),
+        requestOrigin: req.headers.origin,
+        isOriginAllowed: allowedOrigins.includes(req.headers.origin) || allowedOrigins.includes('*'),
+        allResponseHeaders: res.getHeaders()
+      });
+    }
   } else {
     logger.warn('Headers already sent, unable to set headers or send response');
   }
@@ -472,14 +501,31 @@ app.use((err, req, res, next) => {
 
 // OPTIONS request handler for CORS preflight
 app.options('*', (req, res) => {
-  logger.info('Handling OPTIONS request');
+  logger.info('Handling OPTIONS request', {
+    origin: req.headers.origin,
+    method: req.method,
+    url: req.url
+  });
   setCorsHeaders(req, res);
   // Additional headers specific to preflight requests
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
   res.header('Access-Control-Max-Age', String(corsOptions.maxAge));
+
+  // Ensure Vary header is set
+  res.header('Vary', 'Origin');
+
   // Log the headers set for the OPTIONS request
   logger.info('OPTIONS response headers:', res.getHeaders());
+
+  // Log specific CORS-related information
+  logger.info('CORS-specific details for OPTIONS:', {
+    allowedOrigins,
+    requestOrigin: req.headers.origin,
+    responseAllowOrigin: res.getHeader('Access-Control-Allow-Origin'),
+    isOriginAllowed: allowedOrigins.includes(req.headers.origin) || allowedOrigins.includes('*')
+  });
+
   res.sendStatus(204);
 });
 
