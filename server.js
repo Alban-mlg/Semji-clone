@@ -36,12 +36,9 @@ const parsedAllowedOrigins = process.env.ALLOWED_ORIGINS
 logger.info('Parsed ALLOWED_ORIGINS:', parsedAllowedOrigins);
 
 // CORS configuration
-const allowedOrigins = parsedAllowedOrigins.length > 0 ? parsedAllowedOrigins : ['*'];
+const allowedOrigins = ['*'];
 logger.info('Allowed origins:', allowedOrigins);
-if (allowedOrigins.length === 0) {
-  logger.warn('No allowed origins specified. Using wildcard (*) origin.');
-  allowedOrigins.push('*');
-}
+logger.info('Temporarily allowing all origins for testing purposes.');
 logger.info('Final allowed origins:', allowedOrigins);
 
 // Verify if the new origin is included
@@ -239,77 +236,35 @@ const handleErrorWithCors = (req, res, error) => {
   }
 };
 
-// Middleware to ensure CORS headers are set for all responses
-app.use((req, res, next) => {
-  // Set CORS headers immediately after receiving the request
-  setCorsHeaders(req, res);
-
-  // Override res.json and res.send to ensure CORS headers are set
-  const originalJson = res.json;
-  res.json = function(body) {
-    setCorsHeaders(req, res);
-    return originalJson.call(this, body);
-  };
-
-  const originalSend = res.send;
-  res.send = function(body) {
-    setCorsHeaders(req, res);
-    return originalSend.call(this, body);
-  };
-
-  // Ensure CORS headers are set even if the response is sent in an unexpected way
-  res.on('finish', () => {
-    setCorsHeaders(req, res);
-  });
-
-  next();
-});
+// CORS headers are now set within route handlers
+// This middleware has been removed to prevent duplicate header setting
 
 app.get('/proxy', async (req, res, next) => {
-  let statusCode = 200;
-  let responseData = null;
-  let contentType = 'application/json';
+  const { url } = req.query;
 
+  if (!url) {
+    return handleErrorWithCors(req, res, new Error('URL parameter is required'));
+  }
+
+  let parsedUrl;
   try {
-    logger.info('Incoming proxy request details', {
-      origin: req.headers.origin,
-      method: req.method,
-      url: req.url,
-      headers: req.headers,
-      query: req.query
-    });
-
-    // Log CORS-specific information for incoming request
-    logger.info('CORS details for incoming request:', {
-      allowedOrigins,
-      requestOrigin: req.headers.origin,
-      isOriginAllowed: allowedOrigins.includes(req.headers.origin) || allowedOrigins.includes('*')
-    });
-
-    // Specific logging for the new Netlify URL
-    if (req.headers.origin === 'https://subtle-frangipane-1cfa46.netlify.app') {
-      logger.info('Request from new Netlify deployment URL detected');
-    }
-
-    const { url } = req.query;
-
-    if (!url) {
-      throw new Error('URL parameter is required');
-    }
-
-    let parsedUrl;
-    try {
-      parsedUrl = new URL(url);
-    } catch (error) {
-      throw new Error('Invalid URL provided');
-    }
-
+    parsedUrl = new URL(url);
     if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
       throw new Error('Only HTTP and HTTPS protocols are supported');
     }
+  } catch (error) {
+    return handleErrorWithCors(req, res, new Error('Invalid URL provided'));
+  }
 
-    logger.info(`Proxying request for URL: ${parsedUrl.href}`);
+  logger.info('Incoming proxy request details', {
+    origin: req.headers.origin,
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    query: req.query
+  });
 
+  try {
     const https = require('https');
     const response = await axios.get(parsedUrl.href, {
       headers: {
@@ -328,40 +283,6 @@ app.get('/proxy', async (req, res, next) => {
         rejectUnauthorized: false,
         secureOptions: require('constants').SSL_OP_NO_TLSv1 | require('constants').SSL_OP_NO_TLSv1_1
       })
-    }).catch(error => {
-      logger.error('Axios request failed:', {
-        message: error.message,
-        code: error.code,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers,
-          timeout: error.config?.timeout
-        }
-      });
-
-      if (axios.isAxiosError(error)) {
-        if (error.response) {
-          logger.error('Target server response:', {
-            status: error.response.status,
-            statusText: error.response.statusText,
-            headers: error.response.headers,
-            data: error.response.data.toString('utf8').substring(0, 500) // Log first 500 chars of response data
-          });
-        } else if (error.request) {
-          logger.error('No response received from target server:', {
-            method: error.config?.method,
-            url: error.config?.url,
-            timeout: error.config?.timeout,
-            errorCode: error.code
-          });
-        } else {
-          logger.error('Error setting up the request:', error.message);
-        }
-      } else {
-        logger.error('Non-Axios error:', error);
-      }
-      throw error;
     });
 
     logger.info('Proxy request successful', {
@@ -371,124 +292,19 @@ app.get('/proxy', async (req, res, next) => {
       contentLength: response.data.length
     });
 
-    statusCode = response.status;
-    responseData = response.data;
-    contentType = response.headers['content-type'] || 'text/html; charset=utf-8';
+    if (!res.headersSent) {
+      setCorsHeaders(req, res);
+      res.setHeader('Content-Type', response.headers['content-type'] || 'text/html; charset=utf-8');
+      res.status(response.status).send(response.data);
 
-  } catch (error) {
-    logger.error('Error in proxy request', {
-      error: error.message,
-      stack: error.stack,
-      url: req.query.url
-    });
-
-    statusCode = 500;
-    let errorMessage = 'Internal server error';
-
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      if (error.message.includes('Invalid URL') || error.message.includes('URL parameter is required')) {
-        statusCode = 400;
-      }
-    }
-
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        statusCode = error.response.status;
-        errorMessage = `Proxy target responded with status ${statusCode}: ${error.response.statusText}`;
-        logger.error('Target server error response:', {
-          status: error.response.status,
-          statusText: error.response.statusText,
-          headers: error.response.headers,
-          data: error.response.data.toString('utf8').substring(0, 500) // Log first 500 chars of error response data
-        });
-      } else if (error.request) {
-        statusCode = 504;
-        errorMessage = 'Gateway Timeout: No response received from the target server';
-        logger.error('No response from target server:', {
-          request: {
-            method: error.config?.method,
-            url: error.config?.url,
-            headers: error.config?.headers,
-            timeout: error.config?.timeout
-          }
-        });
-      }
-    }
-
-    responseData = { error: errorMessage };
-  }
-
-  if (!res.headersSent) {
-    // Set Content-Type header
-    res.setHeader('Content-Type', contentType);
-
-    // Ensure CORS headers are set before sending the response
-    setCorsHeaders(req, res);
-
-    // Log all headers before sending the response
-    const allHeaders = res.getHeaders();
-    logger.info('All headers before sending response:', allHeaders);
-
-    // Send the response
-    res.status(statusCode).send(responseData);
-
-    // Log the final response headers and status after sending
-    logger.info('Response sent', {
-      headers: res.getHeaders(),
-      status: res.statusCode,
-      contentLength: responseData.length || (responseData.error && responseData.error.length) || 0
-    });
-
-    // Log CORS-related response headers
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin'),
-      'Access-Control-Allow-Methods': res.getHeader('Access-Control-Allow-Methods'),
-      'Access-Control-Allow-Headers': res.getHeader('Access-Control-Allow-Headers'),
-      'Access-Control-Allow-Credentials': res.getHeader('Access-Control-Allow-Credentials')
-    };
-    logger.info('CORS-related response headers:', corsHeaders);
-
-    // Check and log if any CORS headers are missing
-    const missingHeaders = Object.entries(corsHeaders)
-      .filter(([key, value]) => !value)
-      .map(([key]) => key);
-
-    if (missingHeaders.length > 0) {
-      logger.warn('Missing CORS headers in the response:', missingHeaders);
-    }
-
-    // Log specific CORS-related information
-    logger.info('CORS-specific details:', {
-      allowedOrigins,
-      requestOrigin: req.headers.origin,
-      responseAllowOrigin: res.getHeader('Access-Control-Allow-Origin'),
-      isOriginAllowed: allowedOrigins.includes(req.headers.origin) || allowedOrigins.includes('*')
-    });
-
-    // Additional CORS debugging information
-    logger.debug('CORS debugging:', {
-      allowedOrigins,
-      requestOrigin: req.headers.origin,
-      responseAllowOrigin: res.getHeader('Access-Control-Allow-Origin'),
-      originMatchingResult: allowedOrigins.includes(req.headers.origin) ? 'Exact match' :
-                            (allowedOrigins.includes('*') ? 'Wildcard match' : 'No match'),
-      corsHeadersSet: Object.keys(corsHeaders).filter(key => corsHeaders[key] !== undefined)
-    });
-
-    // Specific logging for the new Netlify URL
-    if (req.headers.origin === 'https://subtle-frangipane-1cfa46.netlify.app') {
-      logger.info('Response sent to new Netlify deployment URL', {
-        corsHeaders,
-        allowedOrigins,
-        responseAllowOrigin: res.getHeader('Access-Control-Allow-Origin'),
-        requestOrigin: req.headers.origin,
-        isOriginAllowed: allowedOrigins.includes(req.headers.origin) || allowedOrigins.includes('*'),
-        allResponseHeaders: res.getHeaders()
+      logger.info('Response sent', {
+        headers: res.getHeaders(),
+        status: res.statusCode,
+        contentLength: response.data.length
       });
     }
-  } else {
-    logger.warn('Headers already sent, unable to set headers or send response');
+  } catch (error) {
+    handleErrorWithCors(req, res, error);
   }
 });
 
