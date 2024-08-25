@@ -436,11 +436,12 @@ app.use((err, req, res, next) => {
 app.options('*', (req, res) => {
   logger.info('Handling OPTIONS request');
   setCorsHeaders(req, res);
+  // Additional headers specific to preflight requests
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
-  res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', String(corsOptions.maxAge));
-  res.header('Vary', 'Origin');
+  // Log the headers set for the OPTIONS request
+  logger.info('OPTIONS response headers:', res.getHeaders());
   res.sendStatus(204);
 });
 
