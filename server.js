@@ -33,7 +33,9 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
       .map(origin => origin.trim())
       .filter(origin => origin !== '')
   : [];
+const useWildcard = allowedOrigins.includes('*');
 logger.info('Parsed ALLOWED_ORIGINS:', allowedOrigins);
+logger.info('Using wildcard for CORS:', useWildcard);
 
 // CORS configuration
 logger.info('Allowed origins:', allowedOrigins);
@@ -55,8 +57,9 @@ if (netlifyOrigins.length > 0) {
 const corsOptions = {
   origin: function (origin, callback) {
     logger.debug('Incoming request origin:', origin);
-    if (!origin) {
+    if (!origin || allowedOrigins.includes('*')) {
       // Allow requests with no origin (like mobile apps or curl requests)
+      // or if wildcard is specified in allowedOrigins
       callback(null, true);
     } else if (allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -131,7 +134,10 @@ const setCorsHeaders = (req, res) => {
   });
 
   // Set Access-Control-Allow-Origin based on the request origin
-  if (origin && allowedOrigins.includes(origin)) {
+  if (allowedOrigins.includes('*')) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    logger.info(`Wildcard origin allowed. Setting Access-Control-Allow-Origin: ${origin || '*'}`);
+  } else if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     logger.info(`Origin ${origin} is allowed. Setting Access-Control-Allow-Origin: ${origin}`);
   } else {
@@ -165,7 +171,7 @@ const setCorsHeaders = (req, res) => {
 
   // Verify if Access-Control-Allow-Origin is set correctly
   const setOrigin = res.getHeader('Access-Control-Allow-Origin');
-  if (origin && setOrigin !== origin) {
+  if (origin && setOrigin !== origin && setOrigin !== '*') {
     logger.warn(`Mismatch between request origin (${origin}) and set origin (${setOrigin})`);
   }
 
@@ -174,7 +180,7 @@ const setCorsHeaders = (req, res) => {
     corsOptions,
     setOrigin: setOrigin,
     requestOrigin: origin,
-    originMatchingResult: origin ? (setOrigin === origin ? 'Exact match' : 'No match') : 'No origin in request'
+    originMatchingResult: origin ? (setOrigin === origin || setOrigin === '*' ? 'Match' : 'No match') : 'No origin in request'
   });
 };
 
