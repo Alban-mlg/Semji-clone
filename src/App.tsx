@@ -3,6 +3,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import DOMPurify from 'dompurify';
 import {
   ChakraProvider,
   Box,
@@ -238,7 +239,7 @@ const fetchAndParseContent = React.useCallback(async () => {
       metaDescription: $('meta[name="description"]').attr('content')?.trim() || '',
       h1Tags: $('h1').map((_, el) => $(el).text().trim()).get(),
       links: $('a').map((_, el) => $(el).attr('href')).get().filter(Boolean),
-      content: $('body').text().trim(),
+      content: DOMPurify.sanitize($('body').html() || '', { ALLOWED_TAGS: [] }).trim(),
     };
 
     console.log('Content parsed successfully');
@@ -330,15 +331,7 @@ const handleSuggestionCompletion = React.useCallback((isChecked: boolean, index:
               <Box flex={1} maxWidth="40%" overflowY="auto">
                 <Heading as="h2" size="md" mb={4}>Page Content</Heading>
                 <Box minHeight="60vh">
-                  <ReactQuill
-                    value={parsedContent.content}
-                    onChange={(content) => setParsedContent({...parsedContent, content})}
-                    modules={{
-                      toolbar: false,
-                    }}
-                    readOnly={true}
-                    style={{ height: '100%' }}
-                  />
+                  <Text whiteSpace="pre-wrap">{parsedContent.content}</Text>
                 </Box>
               </Box>
               <Box flex={2}>

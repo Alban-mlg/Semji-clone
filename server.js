@@ -58,10 +58,8 @@ const corsOptions = {
   origin: function (origin, callback) {
     logger.debug('Incoming request origin:', origin);
     if (!origin || allowedOrigins.includes('*')) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      // or if wildcard is specified in allowedOrigins
       callback(null, true);
-    } else if (allowedOrigins.includes(origin)) {
+    } else if (allowedOrigins.some(allowedOrigin => origin.startsWith(allowedOrigin))) {
       callback(null, true);
     } else {
       logger.warn('Request from non-allowed origin:', origin);
@@ -80,7 +78,7 @@ const corsOptions = {
 // Separate middleware for handling preflight requests
 app.options('*', (req, res) => {
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
+  if (allowedOrigins.some(allowedOrigin => origin.startsWith(allowedOrigin))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, X-Requested-With, Accept');
@@ -94,13 +92,7 @@ app.options('*', (req, res) => {
 });
 
 // Log CORS configuration
-logger.info('CORS configuration:', JSON.stringify(corsOptions, null, 2));
-
-// Log the CORS configuration
 logger.info('CORS configuration:', JSON.stringify(corsOptions, (key, value) => key === 'origin' ? '[Function: origin]' : value, 2));
-
-// Log the CORS configuration
-logger.info('CORS configuration:', JSON.stringify(corsOptions, null, 2));
 
 // Enable CORS for all routes with our custom implementation
 app.use((req, res, next) => {
@@ -137,7 +129,7 @@ const setCorsHeaders = (req, res) => {
   if (allowedOrigins.includes('*')) {
     res.header('Access-Control-Allow-Origin', origin || '*');
     logger.info(`Wildcard origin allowed. Setting Access-Control-Allow-Origin: ${origin || '*'}`);
-  } else if (origin && allowedOrigins.includes(origin)) {
+  } else if (origin && allowedOrigins.some(allowedOrigin => origin.startsWith(allowedOrigin))) {
     res.header('Access-Control-Allow-Origin', origin);
     logger.info(`Origin ${origin} is allowed. Setting Access-Control-Allow-Origin: ${origin}`);
   } else {
@@ -210,9 +202,6 @@ const handleErrorWithCors = (req, res, error) => {
   }
 };
 
-// CORS headers are now set within route handlers
-// This middleware has been removed to prevent duplicate header setting
-
 app.get('/proxy', async (req, res, next) => {
   const { url } = req.query;
 
@@ -237,7 +226,7 @@ app.get('/proxy', async (req, res, next) => {
     targetUrl: parsedUrl.href,
     headers: req.headers,
     query: req.query,
-    isOriginAllowed: allowedOrigins.includes(req.headers.origin)
+    isOriginAllowed: allowedOrigins.some(allowedOrigin => req.headers.origin?.startsWith(allowedOrigin))
   });
 
   try {
@@ -327,7 +316,7 @@ app.options('*', (req, res) => {
     allowedOrigins,
     requestOrigin: req.headers.origin,
     responseAllowOrigin: res.getHeader('Access-Control-Allow-Origin'),
-    isOriginAllowed: allowedOrigins.includes(req.headers.origin) || allowedOrigins.includes('*')
+    isOriginAllowed: allowedOrigins.some(allowedOrigin => req.headers.origin?.startsWith(allowedOrigin)) || allowedOrigins.includes('*')
   });
 
   res.sendStatus(204);
@@ -339,5 +328,5 @@ app.listen(port, '0.0.0.0', () => {
   logger.info('Environment variables:');
   logger.info(`  ALLOWED_ORIGINS: ${process.env.ALLOWED_ORIGINS}`);
   logger.info(`  PORT: ${process.env.PORT || '3001 (default)'}`);
-  logger.info('CORS configuration:', JSON.stringify(corsOptions, null, 2));
+  logger.info('CORS configuration:', JSON.stringify(corsOptions, (key, value) => key === 'origin' ? '[Function: origin]' : value, 2));
 });
