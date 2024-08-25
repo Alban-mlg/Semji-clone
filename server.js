@@ -30,7 +30,8 @@ const corsOptions = {
       'https://peppy-buttercream-89f707.netlify.app',
       'https://voluble-croquembouche-6b57eb.netlify.app',
       'https://marvelous-kitsune-cd2d38.netlify.app',
-      'https://delightful-buttercream-124071.netlify.app'
+      'https://delightful-buttercream-124071.netlify.app',
+      'https://fantastic-profiterole-9856f8.netlify.app'
     ];
     if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
       callback(null, true);
