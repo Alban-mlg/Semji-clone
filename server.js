@@ -129,12 +129,18 @@ const setCorsHeaders = (req, res) => {
   if (allowedOrigins.includes('*')) {
     res.header('Access-Control-Allow-Origin', '*');
     logger.info(`Wildcard origin is allowed. Setting Access-Control-Allow-Origin: *`);
-  } else if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    logger.info(`Origin ${origin} is allowed. Setting Access-Control-Allow-Origin: ${origin}`);
+  } else if (origin) {
+    const matchedOrigin = allowedOrigins.find(allowedOrigin => origin.startsWith(allowedOrigin));
+    if (matchedOrigin) {
+      res.header('Access-Control-Allow-Origin', origin);
+      logger.info(`Origin ${origin} is allowed (matched ${matchedOrigin}). Setting Access-Control-Allow-Origin: ${origin}`);
+    } else {
+      res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
+      logger.warn(`Non-allowed origin: ${origin}. Setting Access-Control-Allow-Origin to default: ${allowedOrigins[0]}`);
+    }
   } else {
+    logger.warn('No origin header present in the request');
     res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
-    logger.warn(`Non-allowed origin: ${origin}. Setting Access-Control-Allow-Origin to default: ${allowedOrigins[0]}`);
   }
 
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
@@ -177,7 +183,8 @@ const setCorsHeaders = (req, res) => {
     allowedOrigins,
     corsOptions,
     setOrigin: setOrigin,
-    requestOrigin: origin
+    requestOrigin: origin,
+    originMatchingResult: origin ? (setOrigin === origin ? 'Exact match' : (setOrigin === '*' ? 'Wildcard match' : 'No match')) : 'No origin in request'
   });
 };
 
@@ -245,6 +252,13 @@ app.get('/proxy', async (req, res, next) => {
       url: req.url,
       headers: req.headers,
       query: req.query
+    });
+
+    // Log CORS-specific information for incoming request
+    logger.info('CORS details for incoming request:', {
+      allowedOrigins,
+      requestOrigin: req.headers.origin,
+      isOriginAllowed: allowedOrigins.includes(req.headers.origin) || allowedOrigins.includes('*')
     });
 
     const { url } = req.query;
@@ -418,7 +432,8 @@ app.get('/proxy', async (req, res, next) => {
     logger.info('CORS-specific details:', {
       allowedOrigins,
       requestOrigin: req.headers.origin,
-      responseAllowOrigin: res.getHeader('Access-Control-Allow-Origin')
+      responseAllowOrigin: res.getHeader('Access-Control-Allow-Origin'),
+      isOriginAllowed: allowedOrigins.includes(req.headers.origin) || allowedOrigins.includes('*')
     });
   } else {
     logger.warn('Headers already sent, unable to set headers or send response');
