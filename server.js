@@ -125,14 +125,13 @@ const setCorsHeaders = (req, res) => {
     headers: req.headers
   });
 
-  // Always set Access-Control-Allow-Origin
-  res.header('Access-Control-Allow-Origin', origin || '*');
-  logger.info(`Setting Access-Control-Allow-Origin: ${origin || '*'}`);
-
+  // Set Access-Control-Allow-Origin based on the request origin
   if (allowedOrigins.includes('*') || (origin && allowedOrigins.includes(origin))) {
-    logger.info(`Origin ${origin || '*'} is allowed`);
+    res.header('Access-Control-Allow-Origin', origin);
+    logger.info(`Origin ${origin} is allowed. Setting Access-Control-Allow-Origin: ${origin}`);
   } else {
-    logger.warn(`Non-allowed origin: ${origin}. Allowing for debugging purposes.`);
+    res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
+    logger.warn(`Non-allowed origin: ${origin}. Setting Access-Control-Allow-Origin to default: ${allowedOrigins[0]}`);
   }
 
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
@@ -157,14 +156,17 @@ const setCorsHeaders = (req, res) => {
   // Log all response headers for debugging
   logger.debug('All response headers:', res.getHeaders());
 
-  // Check if Access-Control-Allow-Origin is set correctly
+  // Double-check if Access-Control-Allow-Origin is set correctly
   if (!res.getHeader('Access-Control-Allow-Origin')) {
     logger.error('Access-Control-Allow-Origin header is missing');
+    res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
+    logger.info(`Fallback: Setting Access-Control-Allow-Origin to default: ${allowedOrigins[0]}`);
   }
 
   logger.info('Final CORS configuration:', {
     allowedOrigins,
-    corsOptions
+    corsOptions,
+    setOrigin: res.getHeader('Access-Control-Allow-Origin')
   });
 };
 
@@ -398,6 +400,13 @@ app.get('/proxy', async (req, res, next) => {
     if (missingHeaders.length > 0) {
       logger.warn('Missing CORS headers in the response:', missingHeaders);
     }
+
+    // Log specific CORS-related information
+    logger.info('CORS-specific details:', {
+      allowedOrigins,
+      requestOrigin: req.headers.origin,
+      responseAllowOrigin: res.getHeader('Access-Control-Allow-Origin')
+    });
   } else {
     logger.warn('Headers already sent, unable to set headers or send response');
   }
