@@ -50,10 +50,11 @@ if (allowedOrigins.includes('https://voluble-mousse-39443b.netlify.app')) {
 const corsOptions = {
   origin: function (origin, callback) {
     logger.debug('Incoming request origin:', origin);
-    if (!origin) {
+    if (!origin || allowedOrigins.includes('*')) {
       // Allow requests with no origin (like mobile apps or curl requests)
+      // or if wildcard is allowed
       callback(null, true);
-    } else if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+    } else if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       logger.warn('Request from non-allowed origin:', origin);
@@ -67,21 +68,22 @@ const corsOptions = {
   optionsSuccessStatus: 204,
   preflightContinue: false,
   maxAge: 86400, // 24 hours
-  handlePreflightRequest: (req, res) => {
-    const origin = req.headers.origin;
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
-      const headers = {
-        'Access-Control-Allow-Origin': allowedOrigins.includes('*') ? '*' : origin,
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Origin, X-Requested-With, Accept',
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Max-Age': '86400',
-      };
-      res.writeHead(204, headers);
-    }
-    res.end();
-  }
 };
+
+// Separate middleware for handling preflight requests
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes('*') ? '*' : origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, X-Requested-With, Accept');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    res.status(204).end();
+  } else {
+    res.status(403).end();
+  }
+});
 
 // Log CORS configuration
 logger.info('CORS configuration:', JSON.stringify(corsOptions, null, 2));
@@ -92,15 +94,14 @@ logger.info('CORS configuration:', JSON.stringify(corsOptions, (key, value) => k
 // Log the CORS configuration
 logger.info('CORS configuration:', JSON.stringify(corsOptions, null, 2));
 
-// Enable CORS for all routes with specific options
+// Enable CORS for all routes with our custom implementation
 app.use((req, res, next) => {
-  cors(corsOptions)(req, res, (err) => {
-    if (err) {
-      logger.error('CORS error:', err);
-      return res.status(500).json({ error: 'CORS error', details: err.message });
-    }
+  setCorsHeaders(req, res);
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204);
+  } else {
     next();
-  });
+  }
 });
 
 // Logging middleware
