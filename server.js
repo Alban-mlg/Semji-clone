@@ -44,11 +44,12 @@ if (allowedOrigins.length === 0) {
 }
 logger.info('Final allowed origins:', allowedOrigins);
 
-// Verify if the new origin is included
-if (allowedOrigins.includes('https://subtle-frangipane-1cfa46.netlify.app')) {
-  logger.info('New origin "https://subtle-frangipane-1cfa46.netlify.app" is included in allowed origins.');
+// Verify if Netlify origins are included
+const netlifyOrigins = allowedOrigins.filter(origin => origin.includes('.netlify.app'));
+if (netlifyOrigins.length > 0) {
+  logger.info('Netlify origins included in allowed origins:', netlifyOrigins);
 } else {
-  logger.warn('New origin "https://subtle-frangipane-1cfa46.netlify.app" is not included in allowed origins. Please check the ALLOWED_ORIGINS environment variable.');
+  logger.warn('No Netlify origins found in allowed origins. Please check the ALLOWED_ORIGINS environment variable.');
 }
 
 const corsOptions = {
@@ -227,8 +228,10 @@ app.get('/proxy', async (req, res, next) => {
     origin: req.headers.origin,
     method: req.method,
     url: req.url,
+    targetUrl: parsedUrl.href,
     headers: req.headers,
-    query: req.query
+    query: req.query,
+    isOriginAllowed: allowedOrigins.includes(req.headers.origin)
   });
 
   try {
@@ -267,10 +270,22 @@ app.get('/proxy', async (req, res, next) => {
       logger.info('Response sent', {
         headers: res.getHeaders(),
         status: res.statusCode,
-        contentLength: response.data.length
+        contentLength: response.data.length,
+        corsHeaders: {
+          'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin'),
+          'Access-Control-Allow-Methods': res.getHeader('Access-Control-Allow-Methods'),
+          'Access-Control-Allow-Headers': res.getHeader('Access-Control-Allow-Headers'),
+          'Access-Control-Allow-Credentials': res.getHeader('Access-Control-Allow-Credentials'),
+        }
       });
     }
   } catch (error) {
+    logger.error('Proxy request failed', {
+      error: error.message,
+      stack: error.stack,
+      url: parsedUrl.href,
+      origin: req.headers.origin
+    });
     handleErrorWithCors(req, res, error);
   }
 });
