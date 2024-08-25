@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const winston = require('winston');
+require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -19,9 +20,39 @@ const logger = winston.createLogger({
   ]
 });
 
+// Log environment variables
+logger.info('Environment variables:', {
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'Not set',
+  PORT: process.env.PORT || '3001 (default)',
+  NODE_ENV: process.env.NODE_ENV || 'Not set'
+});
+
+// Log parsed ALLOWED_ORIGINS
+const parsedAllowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+logger.info('Parsed ALLOWED_ORIGINS:', parsedAllowedOrigins);
+
 // CORS configuration
+const allowedOrigins = parsedAllowedOrigins.length > 0 ? parsedAllowedOrigins : ['*'];
+logger.info('Allowed origins:', allowedOrigins);
+if (allowedOrigins.length === 0) {
+  logger.warn('No allowed origins specified. Using wildcard (*) origin.');
+  allowedOrigins.push('*');
+}
+logger.info('Final allowed origins:', allowedOrigins);
+
 const corsOptions = {
-  origin: '*', // Allow all origins
+  origin: function (origin, callback) {
+    logger.debug('Incoming request origin:', origin);
+    if (!origin) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      callback(null, true);
+    } else if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      logger.warn('Request from non-allowed origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
   exposedHeaders: ['Content-Length', 'X-Content-Type-Options'],
@@ -30,12 +61,17 @@ const corsOptions = {
   preflightContinue: false,
   maxAge: 86400, // 24 hours
   handlePreflightRequest: (req, res) => {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Origin, X-Requested-With, Accept',
-      'Access-Control-Max-Age': '86400',
-    });
+    const origin = req.headers.origin;
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+      const headers = {
+        'Access-Control-Allow-Origin': allowedOrigins.includes('*') ? '*' : origin,
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Origin, X-Requested-With, Accept',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400',
+      };
+      res.writeHead(204, headers);
+    }
     res.end();
   }
 };
@@ -65,7 +101,16 @@ app.use((req, res, next) => {
 // Function to set CORS headers
 const setCorsHeaders = (req, res) => {
   const origin = req.headers.origin;
-  res.header('Access-Control-Allow-Origin', origin || '*');
+  if (allowedOrigins.includes('*')) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    logger.info(`Allowing all origins. Requested origin: ${origin || 'Not specified'}`);
+  } else if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    logger.info(`Allowed origin: ${origin}`);
+  } else {
+    res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
+    logger.warn(`Non-allowed origin: ${origin}. Defaulting to: ${allowedOrigins[0]}`);
+  }
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -90,7 +135,7 @@ const setCorsHeaders = (req, res) => {
 
   // Check if Access-Control-Allow-Origin is set correctly
   if (!res.getHeader('Access-Control-Allow-Origin')) {
-    logger.warn('Access-Control-Allow-Origin header is missing');
+    logger.error('Access-Control-Allow-Origin header is missing');
   }
 };
 
@@ -348,5 +393,9 @@ app.options('*', (req, res) => {
 
 app.listen(port, '0.0.0.0', () => {
   logger.info(`Proxy server running on 0.0.0.0:${port}`);
-  logger.info(`CORS enabled for all origins`);
+  logger.info(`CORS enabled for allowed origins: ${allowedOrigins.join(', ')}`);
+  logger.info('Environment variables:');
+  logger.info(`  ALLOWED_ORIGINS: ${process.env.ALLOWED_ORIGINS}`);
+  logger.info(`  PORT: ${process.env.PORT || '3001 (default)'}`);
+  logger.info('CORS configuration:', JSON.stringify(corsOptions, null, 2));
 });
