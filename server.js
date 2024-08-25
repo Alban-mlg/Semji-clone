@@ -163,10 +163,17 @@ const setCorsHeaders = (req, res) => {
     logger.info(`Fallback: Setting Access-Control-Allow-Origin to default: ${allowedOrigins[0]}`);
   }
 
+  // Verify if the set origin matches the request origin
+  const setOrigin = res.getHeader('Access-Control-Allow-Origin');
+  if (origin && setOrigin !== origin && setOrigin !== '*') {
+    logger.warn(`Mismatch between request origin (${origin}) and set origin (${setOrigin})`);
+  }
+
   logger.info('Final CORS configuration:', {
     allowedOrigins,
     corsOptions,
-    setOrigin: res.getHeader('Access-Control-Allow-Origin')
+    setOrigin: setOrigin,
+    requestOrigin: origin
   });
 };
 
@@ -228,8 +235,10 @@ app.get('/proxy', async (req, res, next) => {
   let contentType = 'application/json';
 
   try {
-    logger.info('Incoming request details', {
+    logger.info('Incoming proxy request details', {
       origin: req.headers.origin,
+      method: req.method,
+      url: req.url,
       headers: req.headers,
       query: req.query
     });
@@ -251,7 +260,7 @@ app.get('/proxy', async (req, res, next) => {
       throw new Error('Only HTTP and HTTPS protocols are supported');
     }
 
-    logger.info(`Received request for URL: ${parsedUrl.href}`);
+    logger.info(`Proxying request for URL: ${parsedUrl.href}`);
 
     const https = require('https');
     const response = await axios.get(parsedUrl.href, {
