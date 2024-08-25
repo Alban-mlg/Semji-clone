@@ -54,7 +54,7 @@ const corsOptions = {
       // Allow requests with no origin (like mobile apps or curl requests)
       // or if wildcard is allowed
       callback(null, true);
-    } else if (allowedOrigins.includes(origin)) {
+    } else if (allowedOrigins.some(allowedOrigin => origin.startsWith(allowedOrigin))) {
       callback(null, true);
     } else {
       logger.warn('Request from non-allowed origin:', origin);
@@ -126,7 +126,10 @@ const setCorsHeaders = (req, res) => {
   });
 
   // Set Access-Control-Allow-Origin based on the request origin
-  if (allowedOrigins.includes('*') || (origin && allowedOrigins.includes(origin))) {
+  if (allowedOrigins.includes('*')) {
+    res.header('Access-Control-Allow-Origin', '*');
+    logger.info(`Wildcard origin is allowed. Setting Access-Control-Allow-Origin: *`);
+  } else if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     logger.info(`Origin ${origin} is allowed. Setting Access-Control-Allow-Origin: ${origin}`);
   } else {
@@ -138,7 +141,7 @@ const setCorsHeaders = (req, res) => {
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', String(corsOptions.maxAge));
-  res.header('Vary', 'Origin');
+  res.header('Vary', 'Origin, Access-Control-Request-Headers');
 
   // Add exposed headers
   res.header('Access-Control-Expose-Headers', corsOptions.exposedHeaders.join(', '));
@@ -150,7 +153,8 @@ const setCorsHeaders = (req, res) => {
     headers: corsHeaders['access-control-allow-headers'],
     credentials: corsHeaders['access-control-allow-credentials'],
     maxAge: corsHeaders['access-control-max-age'],
-    exposedHeaders: corsHeaders['access-control-expose-headers']
+    exposedHeaders: corsHeaders['access-control-expose-headers'],
+    vary: corsHeaders['vary']
   });
 
   // Log all response headers for debugging
@@ -434,7 +438,9 @@ app.options('*', (req, res) => {
   setCorsHeaders(req, res);
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
+  res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', String(corsOptions.maxAge));
+  res.header('Vary', 'Origin');
   res.sendStatus(204);
 });
 
