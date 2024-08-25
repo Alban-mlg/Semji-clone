@@ -217,3 +217,22 @@
 {"level":"info","message":"CORS configuration:","timestamp":"2024-08-25T01:06:36.581Z"}
 {"level":"info","message":"Proxy server running on 0.0.0.0:3001","timestamp":"2024-08-25T01:06:36.590Z"}
 {"level":"info","message":"CORS enabled for all origins","timestamp":"2024-08-25T01:06:36.591Z"}
+{"level":"info","message":"CORS configuration:","timestamp":"2024-08-25T01:28:24.586Z"}
+{"level":"info","message":"CORS configuration:","timestamp":"2024-08-25T01:28:24.590Z"}
+{"level":"info","message":"Proxy server running on 0.0.0.0:3001","timestamp":"2024-08-25T01:28:24.599Z"}
+{"level":"info","message":"CORS enabled for all origins","timestamp":"2024-08-25T01:28:24.600Z"}
+{"headers":{"accept":"*/*","host":"localhost:3001","origin":"http://localhost:3000","user-agent":"curl/7.81.0"},"level":"info","message":"GET /proxy?url=https://www.rhetores.fr/","query":{"url":"https://www.rhetores.fr/"},"timestamp":"2024-08-25T01:29:05.890Z"}
+{"allowOrigin":"http://localhost:3000","credentials":"true","headers":"Content-Type, Authorization, Origin, X-Requested-With, Accept","level":"info","maxAge":"86400","message":"CORS headers set:","methods":"GET, OPTIONS","timestamp":"2024-08-25T01:29:05.891Z"}
+{"headers":{"accept":"*/*","host":"localhost:3001","origin":"http://localhost:3000","user-agent":"curl/7.81.0"},"level":"info","message":"Incoming request details","origin":"http://localhost:3000","query":{"url":"https://www.rhetores.fr/"},"timestamp":"2024-08-25T01:29:05.893Z"}
+{"level":"info","message":"Received request for URL: https://www.rhetores.fr/","timestamp":"2024-08-25T01:29:05.893Z"}
+{"contentLength":106131,"headers":{"cache-control":"private, must-revalidate","connection":"close","content-length":"24623","content-type":"text/html; charset=UTF-8","date":"Sun, 25 Aug 2024 01:29:06 GMT","expires":"Sun, 25 Aug 2024 01:29:06 GMT","last-modified":"Sat, 24 Aug 2024 17:28:48 GMT","server":"Apache","vary":"Accept-Encoding,User-Agent","x-content-type-options":"nosniff","x-frame-options":"SAMEORIGIN","x-powered-by":"PHP/8.2","x-xss-protection":"1; mode=block"},"level":"info","message":"Proxy request successful","status":200,"timestamp":"2024-08-25T01:29:06.842Z","url":"https://www.rhetores.fr/"}
+{"level":"info","message":"CORS configuration:","timestamp":"2024-08-25T01:38:47.820Z"}
+{"level":"info","message":"CORS configuration:","timestamp":"2024-08-25T01:38:47.823Z"}
+{"level":"info","message":"CORS configuration:","timestamp":"2024-08-25T01:38:47.824Z"}
+{"level":"info","message":"Proxy server running on 0.0.0.0:3001","timestamp":"2024-08-25T01:38:47.834Z"}
+{"level":"info","message":"CORS enabled for all origins","timestamp":"2024-08-25T01:38:47.834Z"}
+{"headers":{"accept":"*/*","host":"localhost:3001","origin":"http://localhost:3000","user-agent":"curl/7.81.0"},"level":"info","message":"GET /proxy?url=https://www.rhetores.fr/","query":{"url":"https://www.rhetores.fr/"},"timestamp":"2024-08-25T01:39:29.506Z"}
+{"allowOrigin":"*","credentials":"true","headers":"Content-Type, Authorization, Origin, X-Requested-With, Accept","level":"info","maxAge":"86400","message":"CORS headers set:","methods":"GET, OPTIONS","timestamp":"2024-08-25T01:39:29.507Z"}
+{"headers":{"accept":"*/*","host":"localhost:3001","origin":"http://localhost:3000","user-agent":"curl/7.81.0"},"level":"info","message":"Incoming request details","origin":"http://localhost:3000","query":{"url":"https://www.rhetores.fr/"},"timestamp":"2024-08-25T01:39:29.509Z"}
+{"level":"info","message":"Received request for URL: https://www.rhetores.fr/","timestamp":"2024-08-25T01:39:29.509Z"}
+{"contentLength":106131,"headers":{"cache-control":"private, must-revalidate","connection":"close","content-length":"24623","content-type":"text/html; charset=UTF-8","date":"Sun, 25 Aug 2024 01:39:30 GMT","expires":"Sun, 25 Aug 2024 01:39:30 GMT","last-modified":"Sat, 24 Aug 2024 17:28:48 GMT","server":"Apache","vary":"Accept-Encoding,User-Agent","x-content-type-options":"nosniff","x-frame-options":"SAMEORIGIN","x-powered-by":"PHP/8.2","x-xss-protection":"1; mode=block"},"level":"info","message":"Proxy request successful","status":200,"timestamp":"2024-08-25T01:39:30.447Z","url":"https://www.rhetores.fr/"}

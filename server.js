@@ -21,27 +21,7 @@ const logger = winston.createLogger({
 
 // CORS configuration
 const corsOptions = {
-  origin: (origin, callback) => {
-    const allowedOrigins = [
-      'https://gilded-peony-d724d9.netlify.app',
-      'https://shimmering-griffin-7ec005.netlify.app',
-      'http://localhost:3000',
-      'https://friendly-seahorse-2706ff.netlify.app',
-      'https://peppy-buttercream-89f707.netlify.app',
-      'https://voluble-croquembouche-6b57eb.netlify.app',
-      'https://marvelous-kitsune-cd2d38.netlify.app',
-      'https://delightful-buttercream-124071.netlify.app',
-      'https://fantastic-profiterole-9856f8.netlify.app',
-      'https://neon-duckanoo-e29a33.netlify.app',
-      'https://charming-custard-eab60f.netlify.app',
-      'https://splendid-melomakarona-fd668c.netlify.app' // Added new Netlify deployment URL
-    ];
-    if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: '*', // Allow all origins
   methods: ['GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
   exposedHeaders: ['Content-Length', 'X-Content-Type-Options'],
@@ -50,6 +30,9 @@ const corsOptions = {
   preflightContinue: false,
   maxAge: 86400 // 24 hours
 };
+
+// Log CORS configuration
+logger.info('CORS configuration:', JSON.stringify(corsOptions, null, 2));
 
 // Log the CORS configuration
 logger.info('CORS configuration:', JSON.stringify(corsOptions, (key, value) => key === 'origin' ? '[Function: origin]' : value, 2));
@@ -72,13 +55,7 @@ app.use((req, res, next) => {
 
 // Function to set CORS headers
 const setCorsHeaders = (req, res) => {
-  const origin = req.headers.origin;
-  corsOptions.origin(origin, (err, allowed) => {
-    if (allowed) {
-      res.header('Access-Control-Allow-Origin', origin);
-    }
-  });
-
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
   res.header('Access-Control-Allow-Credentials', String(corsOptions.credentials));
@@ -87,7 +64,7 @@ const setCorsHeaders = (req, res) => {
 
   const corsHeaders = res.getHeaders();
   logger.info('CORS headers set:', {
-    allowOrigin: corsHeaders['access-control-allow-origin'] || 'Not set',
+    allowOrigin: corsHeaders['access-control-allow-origin'],
     methods: corsHeaders['access-control-allow-methods'],
     headers: corsHeaders['access-control-allow-headers'],
     credentials: corsHeaders['access-control-allow-credentials'],
@@ -349,6 +326,8 @@ app.use((err, req, res, next) => {
 app.options('*', (req, res) => {
   logger.info('Handling OPTIONS request');
   setCorsHeaders(req, res);
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, X-Requested-With, Accept');
   res.sendStatus(204);
 });
 
