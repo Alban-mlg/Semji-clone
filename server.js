@@ -93,7 +93,15 @@ logger.info('CORS configuration:', JSON.stringify(corsOptions, (key, value) => k
 logger.info('CORS configuration:', JSON.stringify(corsOptions, null, 2));
 
 // Enable CORS for all routes with specific options
-app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  cors(corsOptions)(req, res, (err) => {
+    if (err) {
+      logger.error('CORS error:', err);
+      return res.status(500).json({ error: 'CORS error', details: err.message });
+    }
+    next();
+  });
+});
 
 // Logging middleware
 app.use((req, res, next) => {
@@ -108,16 +116,17 @@ app.use((req, res, next) => {
 // Function to set CORS headers
 const setCorsHeaders = (req, res) => {
   const origin = req.headers.origin;
-  if (allowedOrigins.includes('*')) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-    logger.info(`Allowing all origins. Requested origin: ${origin || 'Not specified'}`);
-  } else if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    logger.info(`Allowed origin: ${origin}`);
+
+  // Always set Access-Control-Allow-Origin
+  res.header('Access-Control-Allow-Origin', origin || '*');
+  logger.info(`Setting Access-Control-Allow-Origin: ${origin || '*'}`);
+
+  if (allowedOrigins.includes('*') || (origin && allowedOrigins.includes(origin))) {
+    logger.info(`Origin ${origin || '*'} is allowed`);
   } else {
-    res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
-    logger.warn(`Non-allowed origin: ${origin}. Defaulting to: ${allowedOrigins[0]}`);
+    logger.warn(`Non-allowed origin: ${origin}. Allowing for debugging purposes.`);
   }
+
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
   res.header('Access-Control-Allow-Credentials', 'true');
