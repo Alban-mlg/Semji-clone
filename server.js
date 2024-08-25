@@ -28,7 +28,7 @@ logger.info('Environment variables:', {
 });
 
 // Log parsed ALLOWED_ORIGINS
-const parsedAllowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+const parsedAllowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()) : [];
 logger.info('Parsed ALLOWED_ORIGINS:', parsedAllowedOrigins);
 
 // CORS configuration
@@ -39,6 +39,13 @@ if (allowedOrigins.length === 0) {
   allowedOrigins.push('*');
 }
 logger.info('Final allowed origins:', allowedOrigins);
+
+// Verify if the new origin is included
+if (allowedOrigins.includes('https://voluble-mousse-39443b.netlify.app')) {
+  logger.info('New origin "https://voluble-mousse-39443b.netlify.app" is included in allowed origins.');
+} else {
+  logger.warn('New origin "https://voluble-mousse-39443b.netlify.app" is not included in allowed origins. Please check the ALLOWED_ORIGINS environment variable.');
+}
 
 const corsOptions = {
   origin: function (origin, callback) {
