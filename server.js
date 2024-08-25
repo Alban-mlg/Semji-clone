@@ -28,7 +28,11 @@ logger.info('Environment variables:', {
 });
 
 // Log parsed ALLOWED_ORIGINS
-const parsedAllowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()) : [];
+const parsedAllowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+      .map(origin => origin.trim())
+      .filter(origin => origin !== '')
+  : [];
 logger.info('Parsed ALLOWED_ORIGINS:', parsedAllowedOrigins);
 
 // CORS configuration
@@ -185,6 +189,15 @@ const setCorsHeaders = (req, res) => {
     setOrigin: setOrigin,
     requestOrigin: origin,
     originMatchingResult: origin ? (setOrigin === origin ? 'Exact match' : (setOrigin === '*' ? 'Wildcard match' : 'No match')) : 'No origin in request'
+  });
+
+  // Additional logging for debugging
+  logger.debug('Detailed origin matching process:', {
+    requestOrigin: origin,
+    allowedOrigins: allowedOrigins,
+    matchResult: allowedOrigins.includes('*') ? 'Wildcard match' :
+                 (origin ? (allowedOrigins.find(allowedOrigin => origin.startsWith(allowedOrigin)) ? 'Matched origin' : 'No match') : 'No origin in request'),
+    finalSetOrigin: setOrigin
   });
 };
 
@@ -434,6 +447,16 @@ app.get('/proxy', async (req, res, next) => {
       requestOrigin: req.headers.origin,
       responseAllowOrigin: res.getHeader('Access-Control-Allow-Origin'),
       isOriginAllowed: allowedOrigins.includes(req.headers.origin) || allowedOrigins.includes('*')
+    });
+
+    // Additional CORS debugging information
+    logger.debug('CORS debugging:', {
+      allowedOrigins,
+      requestOrigin: req.headers.origin,
+      responseAllowOrigin: res.getHeader('Access-Control-Allow-Origin'),
+      originMatchingResult: allowedOrigins.includes(req.headers.origin) ? 'Exact match' :
+                            (allowedOrigins.includes('*') ? 'Wildcard match' : 'No match'),
+      corsHeadersSet: Object.keys(corsHeaders).filter(key => corsHeaders[key] !== undefined)
     });
   } else {
     logger.warn('Headers already sent, unable to set headers or send response');
