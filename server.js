@@ -118,6 +118,13 @@ app.use((req, res, next) => {
 const setCorsHeaders = (req, res) => {
   const origin = req.headers.origin;
 
+  logger.info('Incoming request details:', {
+    method: req.method,
+    url: req.url,
+    origin: origin,
+    headers: req.headers
+  });
+
   // Always set Access-Control-Allow-Origin
   res.header('Access-Control-Allow-Origin', origin || '*');
   logger.info(`Setting Access-Control-Allow-Origin: ${origin || '*'}`);
@@ -154,6 +161,11 @@ const setCorsHeaders = (req, res) => {
   if (!res.getHeader('Access-Control-Allow-Origin')) {
     logger.error('Access-Control-Allow-Origin header is missing');
   }
+
+  logger.info('Final CORS configuration:', {
+    allowedOrigins,
+    corsOptions
+  });
 };
 
 // Wrapper for consistent error handling with CORS headers
