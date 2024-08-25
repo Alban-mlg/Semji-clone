@@ -28,17 +28,20 @@ logger.info('Environment variables:', {
 });
 
 // Log parsed ALLOWED_ORIGINS
-const parsedAllowedOrigins = process.env.ALLOWED_ORIGINS
+const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
       .map(origin => origin.trim())
       .filter(origin => origin !== '')
   : [];
-logger.info('Parsed ALLOWED_ORIGINS:', parsedAllowedOrigins);
+logger.info('Parsed ALLOWED_ORIGINS:', allowedOrigins);
 
 // CORS configuration
-const allowedOrigins = ['*'];
 logger.info('Allowed origins:', allowedOrigins);
-logger.info('Temporarily allowing all origins for testing purposes.');
+if (allowedOrigins.length === 0) {
+  logger.warn('No allowed origins specified. CORS will block all requests.');
+} else {
+  logger.info('CORS will be restricted to the specified origins.');
+}
 logger.info('Final allowed origins:', allowedOrigins);
 
 // Verify if the new origin is included
@@ -51,15 +54,14 @@ if (allowedOrigins.includes('https://subtle-frangipane-1cfa46.netlify.app')) {
 const corsOptions = {
   origin: function (origin, callback) {
     logger.debug('Incoming request origin:', origin);
-    if (!origin || allowedOrigins.includes('*')) {
+    if (!origin) {
       // Allow requests with no origin (like mobile apps or curl requests)
-      // or if wildcard is allowed
       callback(null, true);
-    } else if (allowedOrigins.some(allowedOrigin => origin.startsWith(allowedOrigin) || origin === allowedOrigin)) {
+    } else if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       logger.warn('Request from non-allowed origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error('Origin not allowed by CORS policy'));
     }
   },
   methods: ['GET', 'OPTIONS'],
@@ -74,14 +76,15 @@ const corsOptions = {
 // Separate middleware for handling preflight requests
 app.options('*', (req, res) => {
   const origin = req.headers.origin;
-  if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes('*') ? '*' : origin);
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, X-Requested-With, Accept');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Max-Age', '86400');
     res.status(204).end();
   } else {
+    logger.warn(`Preflight request from non-allowed origin: ${origin}`);
     res.status(403).end();
   }
 });
@@ -127,39 +130,20 @@ const setCorsHeaders = (req, res) => {
   });
 
   // Set Access-Control-Allow-Origin based on the request origin
-  if (allowedOrigins.includes('*')) {
-    res.header('Access-Control-Allow-Origin', '*');
-    logger.info(`Wildcard origin is allowed. Setting Access-Control-Allow-Origin: *`);
-  } else if (origin) {
-    const matchedOrigin = allowedOrigins.find(allowedOrigin => origin.startsWith(allowedOrigin));
-    if (matchedOrigin) {
-      res.header('Access-Control-Allow-Origin', origin);
-      logger.info(`Origin ${origin} is allowed (matched ${matchedOrigin}). Setting Access-Control-Allow-Origin: ${origin}`);
-
-      // Specific logging for the new Netlify URL
-      if (origin === 'https://subtle-frangipane-1cfa46.netlify.app') {
-        logger.info('New Netlify URL detected and allowed');
-      }
-    } else {
-      // If no match, use the first allowed origin as a fallback
-      res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
-      logger.warn(`Non-allowed origin: ${origin}. Setting Access-Control-Allow-Origin to default: ${allowedOrigins[0]}`);
-    }
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    logger.info(`Origin ${origin} is allowed. Setting Access-Control-Allow-Origin: ${origin}`);
   } else {
-    logger.warn('No origin header present in the request');
-    res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
+    logger.warn(`Non-allowed origin: ${origin}. CORS will block this request.`);
+    // Don't set Access-Control-Allow-Origin for non-allowed origins
   }
 
   // Ensure other CORS headers are set
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
   res.header('Access-Control-Allow-Credentials', 'true');
-
-  res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
-  res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
-  res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', String(corsOptions.maxAge));
-  res.header('Vary', 'Origin, Access-Control-Request-Headers');
+  res.header('Vary', 'Origin');
 
   // Add exposed headers
   res.header('Access-Control-Expose-Headers', corsOptions.exposedHeaders.join(', '));
@@ -178,16 +162,9 @@ const setCorsHeaders = (req, res) => {
   // Log all response headers for debugging
   logger.debug('All response headers:', res.getHeaders());
 
-  // Double-check if Access-Control-Allow-Origin is set correctly
-  if (!res.getHeader('Access-Control-Allow-Origin')) {
-    logger.error('Access-Control-Allow-Origin header is missing');
-    res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
-    logger.info(`Fallback: Setting Access-Control-Allow-Origin to default: ${allowedOrigins[0]}`);
-  }
-
-  // Verify if the set origin matches the request origin
+  // Verify if Access-Control-Allow-Origin is set correctly
   const setOrigin = res.getHeader('Access-Control-Allow-Origin');
-  if (origin && setOrigin !== origin && setOrigin !== '*') {
+  if (origin && setOrigin !== origin) {
     logger.warn(`Mismatch between request origin (${origin}) and set origin (${setOrigin})`);
   }
 
@@ -196,17 +173,7 @@ const setCorsHeaders = (req, res) => {
     corsOptions,
     setOrigin: setOrigin,
     requestOrigin: origin,
-    originMatchingResult: origin ? (setOrigin === origin ? 'Exact match' : (setOrigin === '*' ? 'Wildcard match' : 'No match')) : 'No origin in request'
-  });
-
-  // Additional logging for debugging
-  logger.debug('Detailed origin matching process:', {
-    requestOrigin: origin,
-    allowedOrigins: allowedOrigins,
-    matchResult: allowedOrigins.includes('*') ? 'Wildcard match' :
-                 (origin ? (allowedOrigins.find(allowedOrigin => origin.startsWith(allowedOrigin)) ? 'Matched origin' : 'No match') : 'No origin in request'),
-    finalSetOrigin: setOrigin,
-    isNewNetlifyUrl: origin === 'https://splendorous-sunflower-ee4031.netlify.app'
+    originMatchingResult: origin ? (setOrigin === origin ? 'Exact match' : 'No match') : 'No origin in request'
   });
 };
 
