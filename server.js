@@ -45,10 +45,10 @@ if (allowedOrigins.length === 0) {
 logger.info('Final allowed origins:', allowedOrigins);
 
 // Verify if the new origin is included
-if (allowedOrigins.includes('https://tangerine-croquembouche-a869b0.netlify.app')) {
-  logger.info('New origin "https://tangerine-croquembouche-a869b0.netlify.app" is included in allowed origins.');
+if (allowedOrigins.includes('https://subtle-frangipane-1cfa46.netlify.app')) {
+  logger.info('New origin "https://subtle-frangipane-1cfa46.netlify.app" is included in allowed origins.');
 } else {
-  logger.warn('New origin "https://tangerine-croquembouche-a869b0.netlify.app" is not included in allowed origins. Please check the ALLOWED_ORIGINS environment variable.');
+  logger.warn('New origin "https://subtle-frangipane-1cfa46.netlify.app" is not included in allowed origins. Please check the ALLOWED_ORIGINS environment variable.');
 }
 
 const corsOptions = {
@@ -140,7 +140,7 @@ const setCorsHeaders = (req, res) => {
       logger.info(`Origin ${origin} is allowed (matched ${matchedOrigin}). Setting Access-Control-Allow-Origin: ${origin}`);
 
       // Specific logging for the new Netlify URL
-      if (origin === 'https://splendorous-sunflower-ee4031.netlify.app') {
+      if (origin === 'https://subtle-frangipane-1cfa46.netlify.app') {
         logger.info('New Netlify URL detected and allowed');
       }
     } else {
@@ -287,7 +287,7 @@ app.get('/proxy', async (req, res, next) => {
     });
 
     // Specific logging for the new Netlify URL
-    if (req.headers.origin === 'https://splendorous-sunflower-ee4031.netlify.app') {
+    if (req.headers.origin === 'https://subtle-frangipane-1cfa46.netlify.app') {
       logger.info('Request from new Netlify deployment URL detected');
     }
 
@@ -477,7 +477,7 @@ app.get('/proxy', async (req, res, next) => {
     });
 
     // Specific logging for the new Netlify URL
-    if (req.headers.origin === 'https://splendorous-sunflower-ee4031.netlify.app') {
+    if (req.headers.origin === 'https://subtle-frangipane-1cfa46.netlify.app') {
       logger.info('Response sent to new Netlify deployment URL', {
         corsHeaders,
         allowedOrigins,
