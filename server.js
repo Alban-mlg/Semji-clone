@@ -45,10 +45,10 @@ if (allowedOrigins.length === 0) {
 logger.info('Final allowed origins:', allowedOrigins);
 
 // Verify if the new origin is included
-if (allowedOrigins.includes('https://voluble-mousse-39443b.netlify.app')) {
-  logger.info('New origin "https://voluble-mousse-39443b.netlify.app" is included in allowed origins.');
+if (allowedOrigins.includes('https://tangerine-croquembouche-a869b0.netlify.app')) {
+  logger.info('New origin "https://tangerine-croquembouche-a869b0.netlify.app" is included in allowed origins.');
 } else {
-  logger.warn('New origin "https://voluble-mousse-39443b.netlify.app" is not included in allowed origins. Please check the ALLOWED_ORIGINS environment variable.');
+  logger.warn('New origin "https://tangerine-croquembouche-a869b0.netlify.app" is not included in allowed origins. Please check the ALLOWED_ORIGINS environment variable.');
 }
 
 const corsOptions = {
