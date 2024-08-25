@@ -58,7 +58,7 @@ const corsOptions = {
       // Allow requests with no origin (like mobile apps or curl requests)
       // or if wildcard is allowed
       callback(null, true);
-    } else if (allowedOrigins.some(allowedOrigin => origin.startsWith(allowedOrigin))) {
+    } else if (allowedOrigins.some(allowedOrigin => origin.startsWith(allowedOrigin) || origin === allowedOrigin)) {
       callback(null, true);
     } else {
       logger.warn('Request from non-allowed origin:', origin);
