@@ -59,7 +59,10 @@ const corsOptions = {
     logger.debug('Incoming request origin:', origin);
     if (!origin || allowedOrigins.includes('*')) {
       callback(null, true);
-    } else if (allowedOrigins.some(allowedOrigin => origin.startsWith(allowedOrigin))) {
+    } else if (allowedOrigins.some(allowedOrigin =>
+      origin.startsWith(allowedOrigin) ||
+      new RegExp('^' + allowedOrigin.replace(/\*/g, '.*') + '$').test(origin)
+    )) {
       callback(null, true);
     } else {
       logger.warn('Request from non-allowed origin:', origin);
@@ -129,12 +132,20 @@ const setCorsHeaders = (req, res) => {
   if (allowedOrigins.includes('*')) {
     res.header('Access-Control-Allow-Origin', origin || '*');
     logger.info(`Wildcard origin allowed. Setting Access-Control-Allow-Origin: ${origin || '*'}`);
-  } else if (origin && allowedOrigins.some(allowedOrigin => origin.startsWith(allowedOrigin))) {
-    res.header('Access-Control-Allow-Origin', origin);
-    logger.info(`Origin ${origin} is allowed. Setting Access-Control-Allow-Origin: ${origin}`);
+  } else if (origin) {
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      const regex = new RegExp(`^https?://(([^/]+\\.)?${allowedOrigin.replace(/\./g, '\\.')}|${allowedOrigin.replace(/\./g, '\\.')}(/.*)?)$`);
+      return regex.test(origin);
+    });
+    if (isAllowed) {
+      res.header('Access-Control-Allow-Origin', origin);
+      logger.info(`Origin ${origin} is allowed. Setting Access-Control-Allow-Origin: ${origin}`);
+    } else {
+      logger.warn(`Non-allowed origin: ${origin}. CORS will block this request.`);
+      // Don't set Access-Control-Allow-Origin for non-allowed origins
+    }
   } else {
-    logger.warn(`Non-allowed origin: ${origin}. CORS will block this request.`);
-    // Don't set Access-Control-Allow-Origin for non-allowed origins
+    logger.warn('No origin in request. CORS may block this request.');
   }
 
   // Ensure other CORS headers are set
@@ -161,18 +172,12 @@ const setCorsHeaders = (req, res) => {
   // Log all response headers for debugging
   logger.debug('All response headers:', res.getHeaders());
 
-  // Verify if Access-Control-Allow-Origin is set correctly
-  const setOrigin = res.getHeader('Access-Control-Allow-Origin');
-  if (origin && setOrigin !== origin && setOrigin !== '*') {
-    logger.warn(`Mismatch between request origin (${origin}) and set origin (${setOrigin})`);
-  }
-
   logger.info('Final CORS configuration:', {
     allowedOrigins,
     corsOptions,
-    setOrigin: setOrigin,
+    setOrigin: res.getHeader('Access-Control-Allow-Origin'),
     requestOrigin: origin,
-    originMatchingResult: origin ? (setOrigin === origin || setOrigin === '*' ? 'Match' : 'No match') : 'No origin in request'
+    originMatchingResult: origin ? (res.getHeader('Access-Control-Allow-Origin') === origin ? 'Match' : 'No match') : 'No origin in request'
   });
 };
 
@@ -198,7 +203,9 @@ const handleErrorWithCors = (req, res, error) => {
   } else {
     logger.warn('Headers already sent, unable to set CORS headers or send error response');
     // If headers are already sent, we can't modify them, so we'll end the response
-    res.end();
+    if (!res.finished) {
+      res.end(JSON.stringify({ error: errorMessage }));
+    }
   }
 };
 
@@ -226,7 +233,7 @@ app.get('/proxy', async (req, res, next) => {
     targetUrl: parsedUrl.href,
     headers: req.headers,
     query: req.query,
-    isOriginAllowed: allowedOrigins.some(allowedOrigin => req.headers.origin?.startsWith(allowedOrigin))
+    isOriginAllowed: allowedOrigins.includes('*') || allowedOrigins.some(allowedOrigin => req.headers.origin?.startsWith(allowedOrigin))
   });
 
   try {
@@ -281,7 +288,12 @@ app.get('/proxy', async (req, res, next) => {
       url: parsedUrl.href,
       origin: req.headers.origin
     });
-    handleErrorWithCors(req, res, error);
+    if (!res.headersSent) {
+      handleErrorWithCors(req, res, error);
+    } else {
+      logger.warn('Headers already sent, unable to send error response');
+      res.end();
+    }
   }
 });
 
