@@ -57,16 +57,22 @@ if (netlifyOrigins.length > 0) {
 const corsOptions = {
   origin: function (origin, callback) {
     logger.debug('Incoming request origin:', origin);
-    if (!origin || allowedOrigins.includes('*')) {
+    if (allowedOrigins.includes('*')) {
       callback(null, true);
-    } else if (allowedOrigins.some(allowedOrigin =>
-      origin.startsWith(allowedOrigin) ||
-      new RegExp('^' + allowedOrigin.replace(/\*/g, '.*') + '$').test(origin)
-    )) {
-      callback(null, true);
+    } else if (origin) {
+      const isAllowed = allowedOrigins.some(allowedOrigin => {
+        const regex = new RegExp(`^https?://(.*\\.)?${allowedOrigin.replace(/\./g, '\\.').replace(/^https?:\/\//, '')}(:[0-9]+)?(/.*)?$`);
+        return regex.test(origin);
+      });
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        logger.warn('Request from non-allowed origin:', origin);
+        callback(new Error('Origin not allowed by CORS policy'));
+      }
     } else {
-      logger.warn('Request from non-allowed origin:', origin);
-      callback(new Error('Origin not allowed by CORS policy'));
+      // Allow requests with no origin (like mobile apps or curl requests)
+      callback(null, true);
     }
   },
   methods: ['GET', 'OPTIONS'],
@@ -81,12 +87,15 @@ const corsOptions = {
 // Separate middleware for handling preflight requests
 app.options('*', (req, res) => {
   const origin = req.headers.origin;
-  if (allowedOrigins.some(allowedOrigin => origin.startsWith(allowedOrigin))) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
+  logger.info(`Handling OPTIONS request from origin: ${origin}`);
+
+  if (allowedOrigins.includes('*') || allowedOrigins.some(allowedOrigin => origin.startsWith(allowedOrigin))) {
+    setCorsHeaders(req, res);
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, X-Requested-With, Accept');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Max-Age', '86400');
+
+    logger.info('CORS headers set for OPTIONS request:', res.getHeaders());
     res.status(204).end();
   } else {
     logger.warn(`Preflight request from non-allowed origin: ${origin}`);
@@ -130,11 +139,12 @@ const setCorsHeaders = (req, res) => {
 
   // Set Access-Control-Allow-Origin based on the request origin
   if (allowedOrigins.includes('*')) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-    logger.info(`Wildcard origin allowed. Setting Access-Control-Allow-Origin: ${origin || '*'}`);
+    res.header('Access-Control-Allow-Origin', '*');
+    logger.info(`Wildcard origin allowed. Setting Access-Control-Allow-Origin: *`);
   } else if (origin) {
     const isAllowed = allowedOrigins.some(allowedOrigin => {
-      const regex = new RegExp(`^https?://(([^/]+\\.)?${allowedOrigin.replace(/\./g, '\\.')}|${allowedOrigin.replace(/\./g, '\\.')}(/.*)?)$`);
+      // Use a more flexible regex to match subdomains and paths
+      const regex = new RegExp(`^https?://(.*\\.)?${allowedOrigin.replace(/\./g, '\\.').replace(/^https?:\/\//, '')}(:[0-9]+)?(/.*)?$`);
       return regex.test(origin);
     });
     if (isAllowed) {
@@ -142,10 +152,13 @@ const setCorsHeaders = (req, res) => {
       logger.info(`Origin ${origin} is allowed. Setting Access-Control-Allow-Origin: ${origin}`);
     } else {
       logger.warn(`Non-allowed origin: ${origin}. CORS will block this request.`);
-      // Don't set Access-Control-Allow-Origin for non-allowed origins
+      // Set the header to the origin even if it's not allowed
+      // This ensures the browser receives a response, which is necessary for proper CORS error handling
+      res.header('Access-Control-Allow-Origin', origin);
     }
   } else {
-    logger.warn('No origin in request. CORS may block this request.');
+    logger.warn('No origin in request. Setting Access-Control-Allow-Origin to *');
+    res.header('Access-Control-Allow-Origin', '*');
   }
 
   // Ensure other CORS headers are set
